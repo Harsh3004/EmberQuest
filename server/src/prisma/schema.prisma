@@ -1,0 +1,118 @@
+// Emberquest database schema (PostgreSQL).
+// Matches section 2 of the build plan. Rewards (xpReward/goldReward) are
+// server-assigned from difficulty - the client never supplies them.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  username      String   @unique
+  email         String   @unique
+  passwordHash  String
+  avatarUrl     String?
+  level         Int      @default(1)
+  totalXp       Int      @default(0)
+  gold          Int      @default(0)
+  currentStreak Int      @default(0)
+  longestStreak Int      @default(0)
+  lastActiveDay DateTime?
+  createdAt     DateTime @default(now())
+
+  attributes    Attribute[]
+  quests        Quest[]
+  activityLogs  ActivityLog[]
+  inventory     InventoryItem[]
+  refreshTokens RefreshToken[]
+}
+
+model Attribute {
+  id        String @id @default(uuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String // Strength | Intellect | Vitality | Discipline | Charisma
+  level     Int    @default(1)
+  currentXp Int    @default(0)
+
+  @@unique([userId, name])
+}
+
+model Quest {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  attribute   String // links to an Attribute.name for this user
+  difficulty  Difficulty  @default(EASY)
+  xpReward    Int // server-assigned from difficulty, never client-supplied
+  goldReward  Int
+  status      QuestStatus @default(ACTIVE)
+  recurrence  Recurrence  @default(NONE)
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdAt   DateTime    @default(now())
+}
+
+enum Difficulty {
+  TRIVIAL
+  EASY
+  MEDIUM
+  HARD
+  EPIC
+}
+
+enum QuestStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum Recurrence {
+  NONE
+  DAILY
+  WEEKLY
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questId   String?
+  action    String // "quest_completed" | "level_up" | "item_purchased" | ...
+  xpDelta   Int      @default(0)
+  goldDelta Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model ShopItem {
+  id          String @id @default(uuid())
+  name        String
+  description String
+  cost        Int
+  type        String // "theme" | "badge" | "title" | "avatar"
+}
+
+model InventoryItem {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId     String
+  equipped   Boolean  @default(false)
+  acquiredAt DateTime @default(now())
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+}

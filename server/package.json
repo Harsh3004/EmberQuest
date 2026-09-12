@@ -1,0 +1,12 @@
+{
+  "name": "emberquest-server",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "jest --runInBand",
+    "lint": "eslint src --ext .ts"
+  }
+}

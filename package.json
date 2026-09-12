@@ -1,0 +1,17 @@
+{
+  "name": "emberquest",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Emberquest — Life RPG: tasks are Quests, points are XP, currency is Gold.",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev:client": "npm run dev -w client",
+    "dev:server": "npm run dev -w server",
+    "build": "npm run build -w client && npm run build -w server",
+    "test": "npm run test -w client && npm run test -w server",
+    "lint": "npm run lint -w client && npm run lint -w server"
+  }
+}

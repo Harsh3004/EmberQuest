@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "prisma": {
-    "schema": "src/prisma/schema.prisma"
+    "schema": "src/prisma/schema.prisma",
+    "seed": "node src/prisma/seed.js"
   },
   "scripts": {
     "dev": "node --watch src/index.js",
@@ -13,15 +14,20 @@
     "db:validate": "prisma validate",
     "db:generate": "prisma generate",
     "db:diff": "prisma migrate diff --from-empty --to-schema-datamodel ./src/prisma/schema.prisma --script",
-    "db:migrate": "prisma migrate dev"
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-rate-limit": "^7.2.0",
-    "helmet": "^7.1.0"
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "eslint": "^8.57.0",

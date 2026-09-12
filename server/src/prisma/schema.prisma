@@ -106,6 +106,9 @@ model InventoryItem {
   itemId     String
   equipped   Boolean  @default(false)
   acquiredAt DateTime @default(now())
+
+  // One copy per hero: doubles as a race-safe guard on double-purchase.
+  @@unique([userId, itemId])
 }
 
 model RefreshToken {

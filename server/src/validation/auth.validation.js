@@ -13,7 +13,7 @@ const signupSchema = z.object({
   username,
   email: z.string().trim().toLowerCase().email('Enter a valid email').max(255),
   password: z.string().min(8, 'Password must be at least 8 characters').max(128),
-  avatarUrl: z.string().trim().max(500).url('Avatar must be a valid URL').optional(),
+  avatarUrl: z.string().trim().max(500).url('Avatar must be a valid URL').or(z.literal('')).optional(),
 });
 
 // Login accepts email OR username so users are not forced to remember which one.

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScrollText, Sparkles, Coins, Trophy, ShoppingBag, Clock, Flame } from 'lucide-react';
 import { useGame } from '../context/GameContext';
+import { ActivityLogsSkeleton } from './Skeleton';
 
 const ACTION_CONFIG = {
   level_up:       { icon: Trophy,      color: '#f59e0b', bg: 'rgba(245,158,11,0.15)',  border: 'rgba(245,158,11,0.3)' },
@@ -18,7 +19,11 @@ function timeAgo(dateStr) {
 }
 
 export function ActivityFeed() {
-  const { activityLogs } = useGame();
+  const { activityLogs, dataLoading } = useGame();
+
+  if (dataLoading && activityLogs.length === 0) {
+    return <ActivityLogsSkeleton />;
+  }
 
   return (
     <div className="space-y-6 animate-slide">
@@ -41,7 +46,7 @@ export function ActivityFeed() {
       </div>
 
       {/* Timeline */}
-      <div className="glass rounded-3xl overflow-hidden" style={{ padding:'28px' }}>
+      <div id="chronicles-feed-container" className="glass rounded-3xl overflow-hidden" style={{ padding:'28px' }}>
         {activityLogs.length === 0 ? (
           <div className="text-center py-16 space-y-3">
             <ScrollText size={40} style={{ color:'#1e293b', margin:'0 auto' }} />

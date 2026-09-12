@@ -26,11 +26,11 @@ function dueDateField() {
 // and the server assigns them from difficulty instead (anti-cheat).
 const createQuestSchema = z.object({
   title,
-  description: description.optional(),
+  description: description.nullable().optional(),
   attribute,
   difficulty: difficultyValue.default('EASY'),
   recurrence: recurrenceValue.default('NONE'),
-  dueDate: dueDateField().optional(),
+  dueDate: dueDateField().nullable().optional(),
 });
 
 const patchQuestSchema = z.object({

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShoppingBag, Coins, CheckCircle, Shield, Filter } from 'lucide-react';
 import { useGame } from '../context/GameContext';
+import { ShopArmorySkeleton } from './Skeleton';
 
 const CATEGORIES = [
   { id: 'ALL', label: 'All Items' },
@@ -18,8 +19,12 @@ const TYPE_CONFIG = {
 };
 
 export function ShopArmory() {
-  const { character, shopItems, inventory, purchaseShopItem, toggleEquipItem } = useGame();
+  const { character, shopItems, inventory, purchaseShopItem, toggleEquipItem, dataLoading } = useGame();
   const [cat, setCat] = useState('ALL');
+
+  if (dataLoading && shopItems.length === 0) {
+    return <ShopArmorySkeleton />;
+  }
 
   const ownedMap = new Map(inventory.map(inv => [inv.itemId, inv]));
   const filtered = shopItems.filter(item => cat === 'ALL' || item.type === cat);
@@ -87,8 +92,14 @@ export function ShopArmory() {
       </div>
 
       {/* Item grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filtered.map(item => {
+      {filtered.length === 0 ? (
+        <div className="glass rounded-3xl text-center py-16">
+          <ShoppingBag size={40} style={{ color: '#334155', margin: '0 auto 12px' }} />
+          <p className="font-cinzel font-bold text-slate-400">No items available in this category</p>
+        </div>
+      ) : (
+        <div id="armory-items-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filtered.map(item => {
           const inv = ownedMap.get(item.id);
           const isOwned = Boolean(inv);
           const isEquipped = Boolean(inv?.equipped);
@@ -183,7 +194,8 @@ export function ShopArmory() {
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

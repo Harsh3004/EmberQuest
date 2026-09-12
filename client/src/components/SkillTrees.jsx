@@ -2,6 +2,7 @@ import React from 'react';
 import { Dumbbell, Brain, Heart, Zap, MessageSquare, ChevronRight, TrendingUp, Star } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { xpForAttributeLevel } from '../lib/progression';
+import { SkillTreesSkeleton } from './Skeleton';
 
 const ATTRS = {
   Strength:   { icon: Dumbbell,       color: '#ef4444', glow: 'rgba(239,68,68,0.35)',   bg: 'linear-gradient(135deg,rgba(239,68,68,0.18),rgba(8,10,24,0.95))',   border: 'rgba(239,68,68,0.3)',   bar: 'linear-gradient(90deg,#dc2626,#ef4444,#fca5a5)' },
@@ -20,8 +21,12 @@ const DESCRIPTIONS = {
 };
 
 export function SkillTrees() {
-  const { character, quests, setActiveTab, setSelectedAttribute } = useGame();
+  const { character, quests, setActiveTab, setSelectedAttribute, dataLoading } = useGame();
   const attributes = character.attributes || [];
+
+  if (dataLoading && attributes.length === 0) {
+    return <SkillTreesSkeleton />;
+  }
 
   return (
     <div className="space-y-6 animate-slide">
@@ -61,7 +66,7 @@ export function SkillTrees() {
       </div>
 
       {/* Attribute cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div id="skill-trees-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {attributes.map((attr, i) => {
           const cfg = ATTRS[attr.name] || ATTRS.Discipline;
           const Icon = cfg.icon;

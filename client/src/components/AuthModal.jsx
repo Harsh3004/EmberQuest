@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { sound } from '../lib/sound';
 
 export function AuthModal({ initialMode = 'login', onClose }) {
-  const { login, signup, setUser, isBackendConnected } = useAuth();
+  const { login, signup, isBackendConnected } = useAuth();
   const [mode, setMode] = useState(initialMode);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -29,17 +29,6 @@ export function AuthModal({ initialMode = 'login', onClose }) {
         setError(err.message || 'Authentication failed. Check your credentials.');
       }
     } finally { setLoading(false); }
-  };
-
-  const handleGuestLogin = () => {
-    sound.playClick();
-    setUser({
-      id: 'guest',
-      username: 'Ignis Adventurer',
-      email: 'guest@emberquest.io',
-      isGuest: true
-    });
-    onClose();
   };
 
   return (
@@ -77,7 +66,7 @@ export function AuthModal({ initialMode = 'login', onClose }) {
                 {mode === 'login' ? 'ENTER REALM' : 'FORGE HERO'}
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                {isBackendConnected ? 'Backend connected — sync progress' : 'Backend offline — using local demo'}
+                {isBackendConnected ? 'Connected to realm — progress synced' : 'Connecting to realm...'}
               </p>
             </div>
           </div>
@@ -159,18 +148,6 @@ export function AuthModal({ initialMode = 'login', onClose }) {
             {loading ? 'Entering Realm...' : mode === 'login' ? 'ENTER REALM' : 'CREATE HERO'}
           </button>
         </form>
-
-        <div className="text-center mt-5">
-          <button
-            type="button"
-            onClick={handleGuestLogin}
-            className="btn-ghost w-full flex items-center justify-center gap-2"
-            style={{ padding: '11px 16px', fontSize: '0.78rem', color: '#fbbf24', border: '1px dashed rgba(245,158,11,0.35)', borderRadius: 14 }}
-          >
-            <Flame size={14} style={{ color: '#f59e0b' }} />
-            Explore in Guest / Demo Mode
-          </button>
-        </div>
       </div>
     </div>
   );

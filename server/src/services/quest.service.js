@@ -61,23 +61,24 @@ async function removeQuest(id) {
 // someone else got there first (or the row is gone/archived), so this call
 // is a read-only no-op / 404 / 409 and can never double-award.
 async function completeQuest(userId, questId, { today = new Date() } = {}) {
-  return prisma.$transaction(async (tx) => {
-    const claimed = await tx.quest.updateMany({
-      where: { id: questId, userId, status: 'ACTIVE' },
-      data: { status: 'COMPLETED', completedAt: today },
-    });
-    const quest = await tx.quest.findFirst({ where: { id: questId, userId } });
-    if (!quest) throw new AppError(404, 'Quest not found', 'QUEST_NOT_FOUND');
+  return prisma.$transaction(
+    async (tx) => {
+      const claimed = await tx.quest.updateMany({
+        where: { id: questId, userId, status: 'ACTIVE' },
+        data: { status: 'COMPLETED', completedAt: today },
+      });
+      const quest = await tx.quest.findFirst({ where: { id: questId, userId } });
+      if (!quest) throw new AppError(404, 'Quest not found', 'QUEST_NOT_FOUND');
 
-    const user = await tx.user.findUnique({ where: { id: userId } });
-    if (!user) throw new AppError(404, 'User not found', 'USER_NOT_FOUND');
+      const user = await tx.user.findUnique({ where: { id: userId } });
+      if (!user) throw new AppError(404, 'User not found', 'USER_NOT_FOUND');
 
-    if (claimed.count !== 1) {
-      if (quest.status === 'COMPLETED') {
-        const attributes = await tx.attribute.findMany({
-          where: { userId },
-          orderBy: { createdAt: 'asc' },
-        });
+      if (claimed.count !== 1) {
+        if (quest.status === 'COMPLETED') {
+          const attributes = await tx.attribute.findMany({
+            where: { userId },
+            orderBy: { name: 'asc' },
+          });
         // Idempotent no-op: double-clicks and lost races change nothing.
         return {
           alreadyCompleted: true,
@@ -152,7 +153,7 @@ async function completeQuest(userId, questId, { today = new Date() } = {}) {
     }
     const attributes = await tx.attribute.findMany({
       where: { userId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { name: 'asc' },
     });
 
     return {
@@ -177,7 +178,7 @@ async function completeQuest(userId, questId, { today = new Date() } = {}) {
         alreadyActive: streak.alreadyActive,
       },
     };
-  });
+  }, { timeout: 15000, maxWait: 10000 });
 }
 
 module.exports = {

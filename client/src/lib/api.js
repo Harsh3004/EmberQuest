@@ -21,6 +21,7 @@ export async function apiFetch(url, options = {}) {
   }
 
   const config = {
+    credentials: 'include',
     ...options,
     headers,
   };
@@ -30,17 +31,25 @@ export async function apiFetch(url, options = {}) {
 
     // Handle token expiration: attempt refresh once
     if (res.status === 401 && !options._retry) {
-      const refreshRes = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      try {
+        const refreshRes = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
 
-      if (refreshRes.ok) {
-        const refreshData = await refreshRes.json();
-        setAccessToken(refreshData.token);
-        headers['Authorization'] = `Bearer ${refreshData.token}`;
-        config._retry = true;
-        res = await fetch(url, config);
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          const newToken = refreshData.accessToken || refreshData.token;
+          if (newToken) {
+            setAccessToken(newToken);
+            headers['Authorization'] = `Bearer ${newToken}`;
+            config._retry = true;
+            res = await fetch(url, config);
+          }
+        }
+      } catch {
+        // Refresh failed, proceed to error handling
       }
     }
 

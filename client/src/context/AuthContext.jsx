@@ -16,12 +16,22 @@ export function AuthProvider({ children }) {
         const healthRes = await fetch('/api/health');
         if (healthRes.ok) {
           setIsBackendConnected(true);
-          // Try refresh cookie
-          const refreshRes = await fetch('/api/auth/refresh', { method: 'POST' });
-          if (refreshRes.ok) {
-            const data = await refreshRes.json();
-            setAccessToken(data.token);
-            setUser(data.user);
+          // Try refresh cookie with credentials
+          try {
+            const refreshRes = await fetch('/api/auth/refresh', {
+              method: 'POST',
+              credentials: 'include',
+            });
+            if (refreshRes.ok) {
+              const data = await refreshRes.json();
+              const token = data.accessToken || data.token;
+              if (token) {
+                setAccessToken(token);
+                setUser(data.user);
+              }
+            }
+          } catch {
+            // No active session cookie, which is completely expected
           }
         }
       } catch {
@@ -38,7 +48,8 @@ export function AuthProvider({ children }) {
       method: 'POST',
       body: JSON.stringify({ identifier, password }),
     });
-    setAccessToken(data.token);
+    const token = data.accessToken || data.token;
+    if (token) setAccessToken(token);
     setUser(data.user);
     return data;
   };
@@ -48,7 +59,8 @@ export function AuthProvider({ children }) {
       method: 'POST',
       body: JSON.stringify({ username, email, password, avatarUrl }),
     });
-    setAccessToken(data.token);
+    const token = data.accessToken || data.token;
+    if (token) setAccessToken(token);
     setUser(data.user);
     return data;
   };

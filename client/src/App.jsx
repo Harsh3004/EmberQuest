@@ -3,13 +3,17 @@ import { EmberCanvas } from './components/EmberCanvas';
 import { Header } from './components/Header';
 import { SkillTrees } from './components/SkillTrees';
 import { QuestCard } from './components/QuestCard';
-import { QuestModal } from './components/QuestModal';
+import { QuestModal, PREDEFINED_TEMPLATES } from './components/QuestModal';
+import { PredefinedForgeModal } from './components/PredefinedForgeModal';
 import { LevelUpModal } from './components/LevelUpModal';
 import { ShopArmory } from './components/ShopArmory';
 import { ActivityFeed } from './components/ActivityFeed';
 import { AuthModal } from './components/AuthModal';
 import { LandingPage } from './components/LandingPage';
+import { GameTutorial } from './components/GameTutorial';
 import { ToastContainer } from './components/Toast';
+import { QuestFocusTimer } from './components/QuestFocusTimer';
+import { GamingLoader } from './components/GamingLoader';
 import { QuestCardSkeleton, HeroProfileSkeleton } from './components/Skeleton';
 import { useGame } from './context/GameContext';
 import { useAuth } from './context/AuthContext';
@@ -26,9 +30,9 @@ const ATTR_COLORS = {
 };
 
 export function App() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const {
-    character, quests, activeTab,
+    character, quests, activeTab, setActiveTab,
     questFilter, setQuestFilter,
     selectedAttribute, setSelectedAttribute,
     levelUpData, setLevelUpData,
@@ -36,9 +40,20 @@ export function App() {
   } = useGame();
 
   const [isQuestModalOpen, setIsQuestModalOpen] = useState(false);
+  const [isPredefinedModalOpen, setIsPredefinedModalOpen] = useState(false);
   const [questToEdit, setQuestToEdit] = useState(null);
+  const [prefilledTemplate, setPrefilledTemplate] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState('login');
+  const [isTutorialOpen, setIsTutorialOpen] = useState(() => {
+    // Automatically trigger for initiate on their first visit
+    const completed = localStorage.getItem('eq_tutorial_completed');
+    return !completed;
+  });
+
+  if (loading) {
+    return <GamingLoader isFullScreen message="COMMUNING WITH REALM ARCHIVES..." />;
+  }
 
   if (!user) {
     return (
@@ -64,8 +79,38 @@ export function App() {
   const activeCount = quests.filter(q => q.status === 'ACTIVE').length;
   const completedCount = quests.filter(q => q.status === 'COMPLETED').length;
 
-  const openCreate = () => { sound.playClick(); setQuestToEdit(null); setIsQuestModalOpen(true); };
-  const openEdit = (q) => { setQuestToEdit(q); setIsQuestModalOpen(true); };
+  const openCreate = () => {
+    sound.playClick();
+    setQuestToEdit(null);
+    setPrefilledTemplate(null);
+    setIsQuestModalOpen(true);
+  };
+
+  const openEdit = (q) => {
+    sound.playClick();
+    setQuestToEdit(q);
+    setPrefilledTemplate(null);
+    setIsQuestModalOpen(true);
+  };
+
+  const handleCustomizePredefined = (tmpl) => {
+    sound.playClick();
+    setQuestToEdit(null);
+    setPrefilledTemplate(tmpl);
+    setIsQuestModalOpen(true);
+  };
+
+  const handleQuickForge = (tmpl) => {
+    sound.playClick();
+    createQuest({
+      title: tmpl.title,
+      description: tmpl.timer > 0 ? `[⏱️ ${tmpl.timer}m] ${tmpl.description}` : tmpl.description,
+      attribute: tmpl.attribute,
+      difficulty: tmpl.difficulty,
+      recurrence: tmpl.recurrence || 'NONE',
+      dueDate: null,
+    });
+  };
 
   const totalXpNeeded = Math.round(100 * Math.pow(character.level, 1.5));
   const xpPercent = Math.min(100, Math.round((character.totalXp / (totalXpNeeded || 1)) * 100));
@@ -76,13 +121,17 @@ export function App() {
       <EmberCanvas />
 
       {/* Header */}
-      <Header onOpenAuth={() => setIsAuthModalOpen(true)} />
+      <Header
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenTutorial={() => setIsTutorialOpen(true)}
+      />
 
       {/* Main */}
       <main className="container" style={{ paddingTop:32, paddingBottom:64 }}>
 
         {/* ── HERO PROFILE CARD ── */}
         <div
+          id="hero-profile-card"
           className="relative glass overflow-hidden rounded-3xl mb-8 animate-slide"
           style={{
             padding:'28px 32px',
@@ -140,10 +189,16 @@ export function App() {
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <Award size={12} style={{ color:'#a855f7' }} />
-                  <span>{character.equippedBadge || 'First Flame Badge'}</span>
-                </div>
+                {character.equippedBadge ? (
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <Award size={12} style={{ color:'#a855f7' }} />
+                    <span>{character.equippedBadge}</span>
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-600">
+                    EmberQuest Adventurer
+                  </div>
+                )}
 
                 {/* XP bar under name */}
                 <div className="mt-3" style={{ maxWidth:260 }}>
@@ -225,7 +280,7 @@ export function App() {
           <div className="space-y-6">
 
             {/* Toolbar */}
-            <div className="glass rounded-2xl" style={{ padding:'16px 20px' }}>
+            <div id="quest-toolbar" className="glass rounded-2xl" style={{ padding:'16px 20px' }}>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
 
                 {/* Status filter */}
@@ -272,8 +327,26 @@ export function App() {
                     })}
                   </div>
 
-                  {/* New quest CTA */}
-                  <button className="btn-primary" onClick={openCreate} style={{ whiteSpace:'nowrap' }}>
+                  {/* Predefined Forge & Forge Quest CTA */}
+                  <button
+                    id="predefined-forge-btn"
+                    className="btn-secondary flex items-center gap-1.5"
+                    onClick={() => {
+                      sound.playClick();
+                      setIsPredefinedModalOpen(true);
+                    }}
+                    style={{
+                      whiteSpace: 'nowrap',
+                      borderColor: 'rgba(245,158,11,0.35)',
+                      color: '#fbbf24',
+                    }}
+                    title="Browse predefined scrolls and starter packs"
+                  >
+                    <Sparkles size={14} className="text-amber-400" />
+                    PREDEFINED FORGE
+                  </button>
+
+                  <button id="forge-quest-btn" className="btn-primary" onClick={openCreate} style={{ whiteSpace:'nowrap' }}>
                     <Plus size={15} strokeWidth={3} />
                     FORGE QUEST
                   </button>
@@ -282,11 +355,12 @@ export function App() {
             </div>
 
             {/* Quest grid */}
-            {dataLoading ? (
+            <div id="quest-grid-section">
+            {dataLoading && quests.length === 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                <QuestCardSkeleton />
-                <QuestCardSkeleton />
-                <QuestCardSkeleton />
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <QuestCardSkeleton key={i} />
+                ))}
               </div>
             ) : filteredQuests.length === 0 ? (
               <div className="glass rounded-3xl text-center" style={{ padding:'60px 32px' }}>
@@ -295,12 +369,75 @@ export function App() {
                   {questFilter === 'completed' ? 'No completed history yet' : 'No quests match this filter'}
                 </h3>
                 <p className="text-sm text-slate-600 mb-6 max-w-sm mx-auto">
-                  {questFilter === 'completed' ? 'Complete your first quest to build your chronicle.' : 'Your scroll is clear — forge a new quest to begin your journey.'}
+                  {questFilter === 'completed' ? 'Complete your first quest to build your chronicle.' : 'Your scroll is clear — forge a new quest or pick a predefined scroll to begin your journey.'}
                 </p>
                 {questFilter !== 'completed' && (
-                  <button className="btn-primary" onClick={openCreate} style={{ margin:'0 auto' }}>
-                    <Plus size={15} /> Forge First Quest
-                  </button>
+                  <div className="mt-5 pt-5 border-t border-white/5">
+                    <div className="flex items-center justify-center gap-3 mb-6 flex-wrap">
+                      <button
+                        className="btn-secondary flex items-center gap-2"
+                        onClick={() => {
+                          sound.playClick();
+                          setIsPredefinedModalOpen(true);
+                        }}
+                        style={{ borderColor: 'rgba(245,158,11,0.4)', color: '#fbbf24' }}
+                      >
+                        <Sparkles size={15} className="text-amber-400" /> Browse Predefined Forge Codex
+                      </button>
+                      <button className="btn-primary" onClick={openCreate}>
+                        <Plus size={15} /> Custom Forge
+                      </button>
+                    </div>
+
+                    <div className="text-left max-w-2xl mx-auto">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Sparkles size={14} className="text-amber-400" />
+                          <span className="text-xs font-cinzel font-bold text-amber-400 tracking-wider">
+                            PREDEFINED FORGE SCROLLS
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setIsPredefinedModalOpen(true)}
+                          className="text-[11px] font-cinzel text-amber-400 hover:text-amber-300 underline"
+                        >
+                          View All ({PREDEFINED_TEMPLATES.length})
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {PREDEFINED_TEMPLATES.slice(0, 4).map((tmpl, idx) => (
+                          <div
+                            key={idx}
+                            className="p-3.5 rounded-2xl glass flex items-center justify-between gap-3 border border-white/5 hover:border-amber-500/30 transition-all"
+                            style={{ background: 'rgba(255,255,255,0.02)' }}
+                          >
+                            <div className="flex items-center gap-2.5 overflow-hidden">
+                              <span className="text-xl shrink-0">{tmpl.icon}</span>
+                              <div className="overflow-hidden">
+                                <div className="text-xs font-bold text-slate-200 truncate">{tmpl.title}</div>
+                                <div className="text-[10px] text-slate-400 font-cinzel flex items-center gap-1.5 mt-0.5">
+                                  <span style={{ color: tmpl.color }} className="font-bold">{tmpl.attribute}</span>
+                                  <span>•</span>
+                                  <span>{tmpl.difficulty}</span>
+                                  {tmpl.timer > 0 && <span className="text-amber-400">• ⏱️{tmpl.timer}m</span>}
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              className="btn-ghost shrink-0"
+                              onClick={() => handleQuickForge(tmpl)}
+                              title="Instantly add this quest"
+                              style={{ padding: '6px 12px', fontSize: '0.68rem', color: '#fbbf24', borderColor: 'rgba(245,158,11,0.3)' }}
+                            >
+                              <Plus size={12} /> Forge
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             ) : (
@@ -312,6 +449,7 @@ export function App() {
                 ))}
               </div>
             )}
+            </div>
           </div>
         )}
 
@@ -328,15 +466,37 @@ export function App() {
 
       {/* ── TOASTS & MODALS ── */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
+      <GameTutorial
+        isOpen={isTutorialOpen}
+        onClose={() => setIsTutorialOpen(false)}
+        onSwitchTab={setActiveTab}
+      />
       {isQuestModalOpen && (
-        <QuestModal questToEdit={questToEdit} onClose={() => setIsQuestModalOpen(false)} />
+        <QuestModal
+          questToEdit={questToEdit}
+          initialTemplate={prefilledTemplate}
+          onClose={() => {
+            setIsQuestModalOpen(false);
+            setPrefilledTemplate(null);
+          }}
+          onOpenPredefined={() => {
+            setIsQuestModalOpen(false);
+            setIsPredefinedModalOpen(true);
+          }}
+        />
       )}
+      <PredefinedForgeModal
+        isOpen={isPredefinedModalOpen}
+        onClose={() => setIsPredefinedModalOpen(false)}
+        onCustomize={handleCustomizePredefined}
+      />
       {levelUpData && (
         <LevelUpModal data={levelUpData} onClose={() => setLevelUpData(null)} />
       )}
       {isAuthModalOpen && (
         <AuthModal onClose={() => setIsAuthModalOpen(false)} />
       )}
+      <QuestFocusTimer />
     </div>
   );
 }

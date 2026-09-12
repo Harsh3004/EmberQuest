@@ -31,7 +31,7 @@ async function getCharacter(userId) {
   if (!user) return null;
   const attributes = await prisma.attribute.findMany({
     where: { userId },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { name: 'asc' },
   });
   return characterSnapshot(user, attributes);
 }

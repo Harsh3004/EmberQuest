@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Flame, Coins, Shield, Zap, ShoppingBag, Scroll, Volume2, VolumeX, LogOut, User, Sparkles } from 'lucide-react';
+import { Flame, Coins, Shield, Zap, ShoppingBag, Scroll, Volume2, VolumeX, LogOut, User, Sparkles, HelpCircle } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
 import { sound, setSoundEnabled, isSoundEnabled } from '../lib/sound';
@@ -12,7 +12,7 @@ const NAV_TABS = [
   { id: 'activity', label: 'Chronicles',    icon: Scroll },
 ];
 
-export function Header({ onOpenAuth }) {
+export function Header({ onOpenAuth, onOpenTutorial }) {
   const { character, activeTab, setActiveTab, quests } = useGame();
   const { user, logout, isBackendConnected } = useAuth();
   const [muted, setMuted] = useState(!isSoundEnabled());
@@ -61,7 +61,7 @@ export function Header({ onOpenAuth }) {
           </div>
 
           {/* Center: Hero stats bar (large screens) */}
-          <div className="max-lg:hidden flex items-center gap-5">
+          <div id="header-hero-stats" className="max-lg:hidden flex items-center gap-5">
             {/* Level + XP bar */}
             <div className="glass rounded-xl px-4 py-2.5" style={{ minWidth: 200 }}>
               <div className="flex items-center justify-between mb-1.5">
@@ -115,7 +115,16 @@ export function Header({ onOpenAuth }) {
           </div>
 
           {/* Right: Controls */}
-          <div className="flex items-center gap-2">
+          <div id="header-controls" className="flex items-center gap-2">
+            <button
+              className="btn-icon"
+              onClick={onOpenTutorial}
+              title="Game Tutorial & Induction"
+              id="tutorial-trigger-btn"
+            >
+              <HelpCircle size={16} style={{ color: '#f59e0b' }} />
+            </button>
+
             <button className="btn-icon" onClick={toggleSound} title={muted ? 'Unmute' : 'Mute'}>
               {muted ? <VolumeX size={16} /> : <Volume2 size={16} style={{ color: '#f59e0b' }} />}
             </button>
@@ -169,7 +178,7 @@ export function Header({ onOpenAuth }) {
         </div>
 
         {/* Nav Tabs */}
-        <div className="flex items-center gap-1 py-2 overflow-x-auto no-scrollbar" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+        <div id="nav-tabs-container" className="flex items-center gap-1 py-2 overflow-x-auto no-scrollbar" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
           {NAV_TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;

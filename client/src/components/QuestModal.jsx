@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { X, Swords, Sparkles, Coins, Calendar } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Swords, Sparkles, Coins, Calendar, Clock } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { rewardsFor } from '../lib/progression';
 import { sound } from '../lib/sound';
+import { PREDEFINED_QUESTS } from '../lib/predefinedQuests';
 
 const ATTRIBUTES = ['Strength', 'Intellect', 'Vitality', 'Discipline', 'Charisma'];
 const DIFFICULTIES = ['TRIVIAL', 'EASY', 'MEDIUM', 'HARD', 'EPIC'];
 const RECURRENCES = ['NONE', 'DAILY', 'WEEKLY'];
+
+export const PREDEFINED_TEMPLATES = PREDEFINED_QUESTS;
 
 const ATTR_COLORS = {
   Strength: '#ef4444', Intellect: '#60a5fa', Vitality: '#34d399',
@@ -17,7 +20,7 @@ const DIFF_COLORS = {
   TRIVIAL: '#64748b', EASY: '#10b981', MEDIUM: '#3b82f6', HARD: '#a855f7', EPIC: '#ef4444',
 };
 
-export function QuestModal({ questToEdit, onClose }) {
+export function QuestModal({ questToEdit, initialTemplate, onClose, onOpenPredefined }) {
   const { createQuest, updateQuest } = useGame();
 
   const [title, setTitle]           = useState('');
@@ -27,18 +30,45 @@ export function QuestModal({ questToEdit, onClose }) {
   const [recurrence, setRecurrence] = useState('NONE');
   const [dueDate, setDueDate]       = useState('');
 
+  const [timerMinutes, setTimerMinutes] = useState(0);
+  const [templateCategory, setTemplateCategory] = useState('ALL');
+
   const [error, setError]           = useState('');
 
   useEffect(() => {
     if (questToEdit) {
       setTitle(questToEdit.title || '');
-      setDesc(questToEdit.description || '');
+      // Check if description has timer tag e.g. [⏱️ 25m]
+      const desc = questToEdit.description || '';
+      const timerMatch = desc.match(/\[⏱️\s*(\d+)m\]/);
+      if (timerMatch) {
+        setTimerMinutes(parseInt(timerMatch[1], 10));
+        setDesc(desc.replace(/\[⏱️\s*(\d+)m\]\s*/, ''));
+      } else {
+        setDesc(desc);
+        setTimerMinutes(0);
+      }
       setAttribute(questToEdit.attribute || 'Discipline');
       setDifficulty(questToEdit.difficulty || 'EASY');
       setRecurrence(questToEdit.recurrence || 'NONE');
       setDueDate(questToEdit.dueDate ? questToEdit.dueDate.substring(0, 10) : '');
+    } else if (initialTemplate) {
+      setTitle(initialTemplate.title || '');
+      setDesc(initialTemplate.description || '');
+      setAttribute(initialTemplate.attribute || 'Discipline');
+      setDifficulty(initialTemplate.difficulty || 'EASY');
+      setRecurrence(initialTemplate.recurrence || 'NONE');
+      setTimerMinutes(initialTemplate.timer || 0);
+      setDueDate('');
+    } else {
+      setTimerMinutes(0);
     }
-  }, [questToEdit]);
+  }, [questToEdit, initialTemplate]);
+
+  const filteredTemplates = useMemo(() => {
+    if (templateCategory === 'ALL') return PREDEFINED_QUESTS;
+    return PREDEFINED_QUESTS.filter((t) => t.category === templateCategory);
+  }, [templateCategory]);
 
   const rewards = rewardsFor(difficulty);
 
@@ -50,10 +80,32 @@ export function QuestModal({ questToEdit, onClose }) {
     }
     setError('');
     sound.playClick();
-    const data = { title: title.trim(), description: description.trim() || undefined, attribute, difficulty, recurrence, dueDate: dueDate ? new Date(dueDate).toISOString() : null };
+    
+    let finalDesc = description.trim();
+    if (timerMinutes > 0) {
+      finalDesc = `[⏱️ ${timerMinutes}m] ${finalDesc}`.trim();
+    }
+
+    const data = {
+      title: title.trim(),
+      description: finalDesc || undefined,
+      attribute,
+      difficulty,
+      recurrence,
+      dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+    };
     if (questToEdit) updateQuest(questToEdit.id, data);
     else createQuest(data);
     onClose();
+  };
+
+  const applyTemplate = (tmpl) => {
+    sound.playClick();
+    setTitle(tmpl.title);
+    setDesc(tmpl.description);
+    setAttribute(tmpl.attribute);
+    setDifficulty(tmpl.difficulty);
+    setTimerMinutes(tmpl.timer || 0);
   };
 
   return (
@@ -96,6 +148,78 @@ export function QuestModal({ questToEdit, onClose }) {
           </div>
           <button className="btn-icon" onClick={onClose}><X size={16} /></button>
         </div>
+
+        {/* Predefined Templates (Only for new quests) */}
+        {!questToEdit && (
+          <div
+            className="mb-5 p-3.5 rounded-2xl"
+            style={{
+              background: 'rgba(245,158,11,0.04)',
+              border: '1px solid rgba(245,158,11,0.2)',
+            }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-cinzel font-bold text-amber-400 flex items-center gap-1.5 tracking-wider">
+                <Sparkles size={12} className="text-amber-400 animate-pulse" /> PREDEFINED FORGE SCROLLS
+              </span>
+              {onOpenPredefined && (
+                <button
+                  type="button"
+                  onClick={onOpenPredefined}
+                  className="text-[10px] text-amber-400 hover:text-amber-300 font-cinzel font-bold underline flex items-center gap-1"
+                >
+                  Browse Full Codex ({PREDEFINED_QUESTS.length})
+                </button>
+              )}
+            </div>
+
+            {/* Category filter chips */}
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 mb-2">
+              {['ALL', 'DISCIPLINE', 'INTELLECT', 'STRENGTH', 'VITALITY', 'CHARISMA'].map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setTemplateCategory(cat)}
+                  className="px-2 py-0.5 rounded-lg text-[9px] font-cinzel font-bold whitespace-nowrap transition-all"
+                  style={{
+                    background: templateCategory === cat ? 'rgba(245,158,11,0.25)' : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${templateCategory === cat ? 'rgba(245,158,11,0.45)' : 'rgba(255,255,255,0.06)'}`,
+                    color: templateCategory === cat ? '#fbbf24' : '#64748b',
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+              {filteredTemplates.map((tmpl) => (
+                <button
+                  key={tmpl.id || tmpl.title}
+                  type="button"
+                  onClick={() => applyTemplate(tmpl)}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all hover:scale-[1.02] text-left shrink-0"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)',
+                    border: `1px solid ${tmpl.color}35`,
+                    maxWidth: 210,
+                  }}
+                >
+                  <span className="text-lg shrink-0">{tmpl.icon}</span>
+                  <div className="overflow-hidden">
+                    <div className="text-xs font-bold text-slate-200 truncate">{tmpl.title}</div>
+                    <div className="text-[10px] text-slate-400 font-cinzel flex items-center gap-1.5 mt-0.5">
+                      <span style={{ color: tmpl.color }} className="font-bold">{tmpl.attribute}</span>
+                      <span>•</span>
+                      <span>{tmpl.difficulty}</span>
+                      {tmpl.timer > 0 && <span className="text-amber-400">• ⏱️{tmpl.timer}m</span>}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {error && (
           <div
@@ -234,6 +358,55 @@ export function QuestModal({ questToEdit, onClose }) {
                 value={dueDate}
                 onChange={e => setDueDate(e.target.value)}
               />
+            </div>
+          </div>
+
+          {/* Optional Focus Timer */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="form-label flex items-center gap-1 m-0">
+                <Clock size={11} style={{ color: '#f59e0b' }} /> Focus Timer (Optional)
+              </label>
+              <span className="text-[11px] text-slate-500 font-cinzel">
+                {timerMinutes > 0 ? `${timerMinutes}m focus countdown` : 'Untimed'}
+              </span>
+            </div>
+            <div className="grid grid-cols-5 gap-1.5">
+              {[
+                { m: 0, label: 'None' },
+                { m: 15, label: '15m' },
+                { m: 25, label: '25m 🍅' },
+                { m: 45, label: '45m' },
+                { m: 60, label: '60m' },
+              ].map(({ m, label }) => {
+                const isSelected = timerMinutes === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => { sound.playClick(); setTimerMinutes(m); }}
+                    style={{
+                      padding: '6px 2px',
+                      borderRadius: 9,
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      fontFamily: "'Cinzel',serif",
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s',
+                      background: isSelected
+                        ? 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(245,158,11,0.1))'
+                        : 'rgba(255,255,255,0.03)',
+                      border: isSelected
+                        ? '1px solid rgba(245,158,11,0.45)'
+                        : '1px solid rgba(255,255,255,0.07)',
+                      color: isSelected ? '#fbbf24' : '#64748b',
+                      boxShadow: isSelected ? '0 0 12px rgba(245,158,11,0.2)' : 'none',
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

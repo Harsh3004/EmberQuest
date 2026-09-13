@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
+    "build": "prisma generate",
     "test": "jest --runInBand",
     "lint": "eslint src tests",
     "db:validate": "prisma validate",
